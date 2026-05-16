@@ -4,105 +4,83 @@ from dotenv import load_dotenv
 from datetime import date
 from typing import List, Dict
 
-# ==========================================
-# SECURITY CONFIGURATION
-# ==========================================
-# Automatically look for a .env file in this directory and load its variables
 load_dotenv()
 
-# ==========================================
-# OOP SECTION: The MySQL Database Pipeline
-# ==========================================
 class DailyTracker:
-    def __init__(self, target_calories: int, target_protein: int, target_carbs: int, target_fats: int):
-        self.target_calories = target_calories
-        self.target_protein = target_protein
-        self.target_carbs = target_carbs
-        self.target_fats = target_fats
-        
-        # Safely extract the secret password using environment variables
+    def __init__(self):
         db_password = os.getenv("DB_PASSWORD")
-        
-        # Quick validation check to prevent cryptic errors
         if not db_password:
-            raise ValueError("Security Error: 'DB_PASSWORD' not found in your environment (.env file).")
+            raise ValueError("Security Error: 'DB_PASSWORD' not found in your .env file.")
 
-        # Establish the Secure Database Connection
         self.db = mysql.connector.connect(
             host="localhost",
             user="root",
             password=db_password,
             database="nutrition_db"
         )
-        self.cursor = self.db.cursor(dictionary=True) 
-        self.meals: List[Dict] = self.load_data()
+        self.cursor = self.db.cursor(dictionary=True)
 
-    def load_data(self) -> List[Dict]:
-        """Runs a SQL query to pull ONLY today's meals."""
-        query = "SELECT * FROM meals WHERE DATE(logged_at) = CURDATE()"
-        self.cursor.execute(query)
-        return self.cursor.fetchall()
-
+    # === MEAL TABLE OPERATIONS ===
     def add_meal(self, name: str, calories: int, protein: int, carbs: int, fats: int):
-        """Inserts a new row into the MySQL database."""
         sql = """
             INSERT INTO meals (meal_name, calories, protein, carbs, fats) 
             VALUES (%s, %s, %s, %s, %s)
         """
-        values = (name, calories, protein, carbs, fats)
-        self.cursor.execute(sql, values)
-        self.db.commit() # Safely lock transaction into the DB
+        self.cursor.execute(sql, (name, calories, protein, carbs, fats))
+        self.db.commit()
+        print(f"\n[+] Relational Logged: {name} saved to 'meals' table!")
+
+    def generate_meal_report(self):
+        query = "SELECT * FROM meals WHERE DATE(logged_at) = CURDATE()"
+        self.cursor.execute(query)
+        meals = self.cursor.fetchall()
         
-        self.meals.append({
-            "meal_name": name, 
-            "calories": calories, 
-            "protein": protein,
-            "carbs": carbs,
-            "fats": fats
-        })
-        print(f"\n[+] Successfully Inserted into MySQL: {name}!")
-
-    def get_totals(self) -> Dict[str, int]:
-        return {
-            "calories": sum(m["calories"] for m in self.meals),
-            "protein": sum(m["protein"] for m in self.meals),
-            "carbs": sum(m["carbs"] for m in self.meals),
-            "fats": sum(m["fats"] for m in self.meals)
-        }
-
-    def generate_report(self):
-        totals = self.get_totals()
+        cals = sum(m["calories"] for m in meals)
+        prot = sum(m["protein"] for m in meals)
+        
         print("\n===============================")
-        print(f"  📊 DB REPORT FOR: {date.today()}")
+        print(f" 📊 MEAL TOTALS FOR TODAY")
         print("===============================")
-        print(f"Calories: {totals['calories']:>4} / {self.target_calories} kcal")
-        print(f"Protein:  {totals['protein']:>4} / {self.target_protein} g")
-        print(f"Carbs:    {totals['carbs']:>4} / {self.target_carbs} g")
-        print(f"Fats:     {totals['fats']:>4} / {self.target_fats} g")
+        print(f"Calories: {cals} kcal | Protein: {prot}g")
         print("===============================\n")
 
-# ==========================================
-# EXECUTION: Interactive CLI Menu
-# ==========================================
+    # === PROGRESS TABLE OPERATIONS ===
+    def log_daily_progress(self, weight: float, energy: int, sleep: float):
+        """Inserts or updates the progress metrics for the current date."""
+        sql = """
+            INSERT INTO daily_progress (log_date, body_weight, energy_level, sleep_hours)
+            VALUES (CURDATE(), %s, %s, %s)
+            ON DUPLICATE KEY UPDATE 
+                body_weight = VALUES(body_weight),
+                energy_level = VALUES(energy_level),
+                sleep_hours = VALUES(sleep_hours)
+        """
+        self.cursor.execute(sql, (weight, energy, sleep))
+        self.db.commit()
+        print("\n[+] Relational Logged: Today's physical metrics updated in 'daily_progress'!")
+
+    def close(self):
+        self.cursor.close()
+        self.db.close()
+
+
 def main():
     try:
-        # Initialize with your strict fitness macros
-        tracker = DailyTracker(target_calories=2500, target_protein=135, target_carbs=300, target_fats=80)
+        tracker = DailyTracker()
     except Exception as err:
-        print(f"\n[!] Connection Error: Could not connect to database.")
-        print(f"Details: {err}")
+        print(f"\n[!] Connection Error: {err}")
         return
 
     while True:
-        print("--- 🟢 SECURE SQL NUTRITION TRACKER ---")
-        print("1. Log a new meal to Database")
-        print("2. View daily report")
-        print("3. Exit")
+        print("--- 🟢 RELATIONAL DATA PIPELINE ---")
+        print("1. Log a new meal")
+        print("2. Log daily progress metrics (Weight/Energy)")
+        print("3. View today's meal report")
+        print("4. Exit")
         
-        choice = input("Select an option (1-3): ")
+        choice = input("Select an option (1-4): ")
         
         if choice == '1':
-            print("\n-- Enter Meal Details --")
             name = input("Meal name: ")
             try:
                 cals = int(input("Calories: "))
@@ -111,18 +89,30 @@ def main():
                 fats = int(input("Fats (g): "))
                 tracker.add_meal(name, cals, prot, carbs, fats)
             except ValueError:
-                print("\n[!] Data Error: Please enter valid numbers.")
+                print("\n[!] Input Error: Enter valid integer values.")
                 
         elif choice == '2':
-            tracker.generate_report()
-            
+            print("\n-- Enter Daily Metrics --")
+            try:
+                weight = float(input("Body Weight (kg): "))
+                energy = int(input("Energy Level (1-10): "))
+                sleep = float(input("Sleep Duration (Hours): "))
+                if not (1 <= energy <= 10):
+                    print("[!] Validation Error: Energy level must be between 1 and 10.")
+                    continue
+                tracker.log_daily_progress(weight, energy, sleep)
+            except ValueError:
+                print("\n[!] Input Error: Enter valid numerical values.")
+                
         elif choice == '3':
-            print("\nDisconnecting from database. Goodbye!")
-            tracker.cursor.close()
-            tracker.db.close()
+            tracker.generate_meal_report()
+            
+        elif choice == '4':
+            print("\nDisconnecting engines...")
+            tracker.close()
             break
         else:
-            print("\n[!] Invalid choice.")
+            print("\n[!] Invalid selection.")
 
 if __name__ == "__main__":
     main()
