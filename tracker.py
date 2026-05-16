@@ -1,6 +1,14 @@
 import mysql.connector
+import os
+from dotenv import load_dotenv
 from datetime import date
 from typing import List, Dict
+
+# ==========================================
+# SECURITY CONFIGURATION
+# ==========================================
+# Automatically look for a .env file in this directory and load its variables
+load_dotenv()
 
 # ==========================================
 # OOP SECTION: The MySQL Database Pipeline
@@ -12,14 +20,20 @@ class DailyTracker:
         self.target_carbs = target_carbs
         self.target_fats = target_fats
         
-        # 1. Establish the Database Connection
+        # Safely extract the secret password using environment variables
+        db_password = os.getenv("DB_PASSWORD")
+        
+        # Quick validation check to prevent cryptic errors
+        if not db_password:
+            raise ValueError("Security Error: 'DB_PASSWORD' not found in your environment (.env file).")
+
+        # Establish the Secure Database Connection
         self.db = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="08102000@Zakariae", # <-- UPDATE THIS!
+            password=db_password,
             database="nutrition_db"
         )
-        # Using dictionary=True means SQL rows come back as Python dictionaries!
         self.cursor = self.db.cursor(dictionary=True) 
         self.meals: List[Dict] = self.load_data()
 
@@ -37,9 +51,8 @@ class DailyTracker:
         """
         values = (name, calories, protein, carbs, fats)
         self.cursor.execute(sql, values)
-        self.db.commit() # Locks the transaction into the database
+        self.db.commit() # Safely lock transaction into the DB
         
-        # Update the local Python list so the report works immediately
         self.meals.append({
             "meal_name": name, 
             "calories": calories, 
@@ -72,15 +85,16 @@ class DailyTracker:
 # EXECUTION: Interactive CLI Menu
 # ==========================================
 def main():
-    # If the password is wrong, the program will crash here with an Access Denied error.
     try:
+        # Initialize with your strict fitness macros
         tracker = DailyTracker(target_calories=2500, target_protein=135, target_carbs=300, target_fats=80)
-    except mysql.connector.Error as err:
-        print(f"Error: Could not connect to database. {err}")
+    except Exception as err:
+        print(f"\n[!] Connection Error: Could not connect to database.")
+        print(f"Details: {err}")
         return
 
     while True:
-        print("\n--- 🟢 SQL NUTRITION TRACKER ---")
+        print("--- 🟢 SECURE SQL NUTRITION TRACKER ---")
         print("1. Log a new meal to Database")
         print("2. View daily report")
         print("3. Exit")
@@ -104,7 +118,6 @@ def main():
             
         elif choice == '3':
             print("\nDisconnecting from database. Goodbye!")
-            # Always close the connection cleanly!
             tracker.cursor.close()
             tracker.db.close()
             break
