@@ -7,7 +7,6 @@ from typing import List, Dict
 # ==========================================
 class DailyTracker:
     def __init__(self, target_calories: int, target_protein: int, target_carbs: int, target_fats: int, filename: str = "daily_meals.json"):
-        # Now tracking 4 separate targets
         self.target_calories = target_calories
         self.target_protein = target_protein
         self.target_carbs = target_carbs
@@ -25,7 +24,6 @@ class DailyTracker:
         with open(self.filename, "w") as file:
             json.dump(self.meals, file, indent=4)
 
-    # Updated to accept all macros
     def add_meal(self, name: str, calories: int, protein: int, carbs: int, fats: int):
         self.meals.append({
             "name": name, 
@@ -35,13 +33,9 @@ class DailyTracker:
             "fats": fats
         })
         self.save_data()
-        print(f"[+] Logged: {name} ({calories} kcal, {protein}g P)")
+        print(f"\n[+] Successfully Logged: {name}!")
 
-    # ==========================================
-    # FUNCTIONAL SECTION: Aggregating Data
-    # ==========================================
     def get_totals(self) -> Dict[str, int]:
-        # Using a dictionary to cleanly return all 4 totals at once
         return {
             "calories": sum(m["calories"] for m in self.meals),
             "protein": sum(m["protein"] for m in self.meals),
@@ -51,11 +45,9 @@ class DailyTracker:
 
     def generate_report(self):
         totals = self.get_totals()
-        
         print("\n===============================")
         print("    📊 FULL MACRO REPORT")
         print("===============================")
-        # Formatting the output so it aligns nicely in the terminal
         print(f"Calories: {totals['calories']:>4} / {self.target_calories} kcal")
         print(f"Protein:  {totals['protein']:>4} / {self.target_protein} g")
         print(f"Carbs:    {totals['carbs']:>4} / {self.target_carbs} g")
@@ -63,19 +55,46 @@ class DailyTracker:
         print("===============================\n")
 
 # ==========================================
-# EXECUTION
+# EXECUTION: Interactive CLI Menu
 # ==========================================
-if __name__ == "__main__":
-    # 1. Initialize with your full daily goals
-    today = DailyTracker(
-        target_calories=2500, 
-        target_protein=135, 
-        target_carbs=300, 
-        target_fats=80
-    )
+def main():
+    # 1. Initialize the tracker 
+    tracker = DailyTracker(target_calories=2500, target_protein=135, target_carbs=300, target_fats=80)
 
-    # 2. Add a complex meal
-    today.add_meal("Chicken, Rice, and Avocado", calories=650, protein=50, carbs=60, fats=20)
-    
-    # 3. View the new multidimensional report
-    today.generate_report()
+    # 2. Start the infinite Application Loop
+    while True:
+        print("\n--- 🟢 NUTRITION TRACKER MENU ---")
+        print("1. Log a new meal")
+        print("2. View daily report")
+        print("3. Exit")
+        
+        # input() pauses the script and waits for the user to type something
+        choice = input("Select an option (1-3): ")
+        
+        if choice == '1':
+            print("\n-- Enter Meal Details --")
+            name = input("Meal name: ")
+            
+            # Using try/except for Error Handling (Crucial for Data Science!)
+            # If the user types "apple" instead of a number for calories, it won't crash the program.
+            try:
+                cals = int(input("Calories: "))
+                prot = int(input("Protein (g): "))
+                carbs = int(input("Carbs (g): "))
+                fats = int(input("Fats (g): "))
+                tracker.add_meal(name, cals, prot, carbs, fats)
+            except ValueError:
+                print("\n[!] Data Error: Please enter valid numbers for macros, not letters.")
+                
+        elif choice == '2':
+            tracker.generate_report()
+            
+        elif choice == '3':
+            print("\nExiting tracker. Stay disciplined!")
+            break # This breaks the while loop and ends the program
+            
+        else:
+            print("\n[!] Invalid choice. Please select 1, 2, or 3.")
+
+if __name__ == "__main__":
+    main()

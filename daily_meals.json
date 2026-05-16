@@ -5,5 +5,12 @@
         "protein": 50,
         "carbs": 60,
         "fats": 20
+    },
+    {
+        "name": "kebabs",
+        "calories": 800,
+        "protein": 40,
+        "carbs": 7,
+        "fats": 10
     }
 ]
