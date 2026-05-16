@@ -14,24 +14,33 @@ def fetch_data_from_db() -> pd.DataFrame:
         password=os.getenv("DB_PASSWORD"),
         database="nutrition_db"
     )
-    
-    # The analytical SQL query
     query = "SELECT meal_name, calories, protein, carbs, fats, logged_at FROM meals"
-    
-    # Pandas reads the SQL query directly using the database connection
     df = pd.read_sql(query, db)
-    
     db.close()
     return df
 
 if __name__ == "__main__":
-    # 1. Load the data frame
+    # 1. Fetch the data frame from MySQL
     df = fetch_data_from_db()
     
-    print("\n--- 🐼 RAW PANDAS DATAFRAME ---")
-    # head() prints the top 5 rows in a beautiful structured grid
-    print(df.head()) 
+    print("\n--- 🐼 ALL LOGGED MEALS ---")
+    print(df[['meal_name', 'protein', 'calories']]) # Showing specific columns for clarity
     
-    print("\n--- 📊 AUTOMATED STATISTICAL SUMMARY ---")
-    # describe() automatically calculates count, mean, min, max, and quartiles for every macro!
-    print(df.describe())
+    # =========================================================
+    # DATA MANIPULATION LAYER: Boolean Masking
+    # =========================================================
+    
+    # 2. Define the threshold condition (Targeting meals with more than 45g protein)
+    protein_threshold = 45
+    
+    # 3. Create the Boolean Mask (Evaluates True/False for each row)
+    high_protein_mask = df['protein'] > protein_threshold
+    
+    # 4. Apply the mask to filter the DataFrame
+    high_protein_df = df[high_protein_mask]
+    
+    print(f"\n--- 💪 HIGH-PROTEIN POWER MEALS ONLY (>{protein_threshold}g) ---")
+    if high_protein_df.empty:
+        print("No meals match this high threshold yet! Go log a heavy steak or chicken bowl.")
+    else:
+        print(high_protein_df[['meal_name', 'protein', 'calories']])
