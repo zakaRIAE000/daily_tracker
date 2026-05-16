@@ -3,64 +3,79 @@ import os
 from typing import List, Dict
 
 # ==========================================
-# OOP SECTION: Defining the Blueprint
+# OOP SECTION: The Multi-Dimensional Blueprint
 # ==========================================
 class DailyTracker:
-    def __init__(self, target_protein: int, filename: str = "daily_meals.json"):
+    def __init__(self, target_calories: int, target_protein: int, target_carbs: int, target_fats: int, filename: str = "daily_meals.json"):
+        # Now tracking 4 separate targets
+        self.target_calories = target_calories
         self.target_protein = target_protein
+        self.target_carbs = target_carbs
+        self.target_fats = target_fats
         self.filename = filename
-        # When we start the script, try to load existing data first
         self.meals: List[Dict[str, int]] = self.load_data()
 
     def load_data(self) -> List[Dict[str, int]]:
-        """Loads data from the JSON file if it exists."""
         if os.path.exists(self.filename):
             with open(self.filename, "r") as file:
-                return json.load(file) # Converts JSON text back into a Python list
-        return [] # If no file exists yet, start with an empty list
+                return json.load(file)
+        return []
 
     def save_data(self):
-        """Saves the current meals list to the JSON file."""
         with open(self.filename, "w") as file:
-            json.dump(self.meals, file, indent=4) # Converts Python list to formatted JSON text
+            json.dump(self.meals, file, indent=4)
 
-    def add_meal(self, name: str, protein: int):
-        self.meals.append({"name": name, "protein": protein})
-        self.save_data() # Automatically save to the file every time a meal is added
-        print(f"[+] Logged: {name} ({protein}g protein)")
+    # Updated to accept all macros
+    def add_meal(self, name: str, calories: int, protein: int, carbs: int, fats: int):
+        self.meals.append({
+            "name": name, 
+            "calories": calories, 
+            "protein": protein,
+            "carbs": carbs,
+            "fats": fats
+        })
+        self.save_data()
+        print(f"[+] Logged: {name} ({calories} kcal, {protein}g P)")
 
     # ==========================================
-    # FUNCTIONAL SECTION: Processing the Data
+    # FUNCTIONAL SECTION: Aggregating Data
     # ==========================================
-    def get_total_protein(self) -> int:
-        return sum(meal["protein"] for meal in self.meals)
-
-    def get_high_protein_meals(self, threshold: int) -> List[str]:
-        return [meal["name"] for meal in self.meals if meal["protein"] >= threshold]
+    def get_totals(self) -> Dict[str, int]:
+        # Using a dictionary to cleanly return all 4 totals at once
+        return {
+            "calories": sum(m["calories"] for m in self.meals),
+            "protein": sum(m["protein"] for m in self.meals),
+            "carbs": sum(m["carbs"] for m in self.meals),
+            "fats": sum(m["fats"] for m in self.meals)
+        }
 
     def generate_report(self):
-        total = self.get_total_protein()
-        remaining = max(0, self.target_protein - total)
+        totals = self.get_totals()
         
-        print("\n--- 📊 DAILY PROGRESS REPORT ---")
-        print(f"Target: {self.target_protein}g | Current: {total}g")
-        
-        if remaining == 0:
-            print("✅ Goal crushed!")
-        else:
-            print(f"⏳ Need {remaining}g more to hit the target.")
-            
-        if self.meals:
-            print("Best meals today:", ", ".join(self.get_high_protein_meals(30)))
+        print("\n===============================")
+        print("    📊 FULL MACRO REPORT")
+        print("===============================")
+        # Formatting the output so it aligns nicely in the terminal
+        print(f"Calories: {totals['calories']:>4} / {self.target_calories} kcal")
+        print(f"Protein:  {totals['protein']:>4} / {self.target_protein} g")
+        print(f"Carbs:    {totals['carbs']:>4} / {self.target_carbs} g")
+        print(f"Fats:     {totals['fats']:>4} / {self.target_fats} g")
+        print("===============================\n")
 
 # ==========================================
-# EXECUTION: Running the Script
+# EXECUTION
 # ==========================================
 if __name__ == "__main__":
-    today = DailyTracker(target_protein=135)
+    # 1. Initialize with your full daily goals
+    today = DailyTracker(
+        target_calories=2500, 
+        target_protein=135, 
+        target_carbs=300, 
+        target_fats=80
+    )
 
-    # Note: If you run this script twice, it will add these meals TWICE because 
-    # it is saving them to the file. 
-    today.add_meal("Steak", 50)
+    # 2. Add a complex meal
+    today.add_meal("Chicken, Rice, and Avocado", calories=650, protein=50, carbs=60, fats=20)
     
+    # 3. View the new multidimensional report
     today.generate_report()

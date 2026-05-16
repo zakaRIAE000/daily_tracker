@@ -1,10 +1,9 @@
 [
     {
-        "name": "Protein Shake",
-        "protein": 40
-    },
-    {
-        "name": "Steak",
-        "protein": 50
+        "name": "Chicken, Rice, and Avocado",
+        "calories": 650,
+        "protein": 50,
+        "carbs": 60,
+        "fats": 20
     }
 ]
